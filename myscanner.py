@@ -22,16 +22,17 @@ headers = {
 }
 
 stock_params = {
-    'symbols': "AMC",
+    'symbols': None,
     'fields': "quote",
 }
 
 options_params = {
-    'symbol': "AMC",
+    'symbol': None,
     'contractType': "CALL",
     'strike': None,
 }
 
+ticker = None
 rescan_rate = 180
 strikes = [0.5, 1.0, 1.5, 2.0]
 
@@ -47,7 +48,7 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                 diff = round(stock_bid*100.-round(opt_price*100.))
                 if diff > 2.99:
                     print(f"+++++BTO: {expiration} {strike} C @"
-                          f"{round(opt_mid*100.)/100.} and sell AMC @"
+                          f"{round(opt_mid*100.)/100.} and sell {ticker} @"
                           f"{stock_bid} - difference: $ {diff}, then exercise")
             elif opt_price > stock_ask:
                 diff = round(math.trunc(opt_price*100.)-stock_ask*100.)
@@ -55,8 +56,8 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                     parts = expiration.split(":")
                     if int(parts[1]) < 21:
                         print(f"-----STO: {expiration} {strike} C @"
-                              f"{math.trunc(opt_mid*100.)/100.} and buy AMC @"
-                              f"{stock_ask} - difference: $ {diff}")
+                              f"{math.trunc(opt_mid*100.)/100.} and buy "
+                              f"{ticker} @{stock_ask} - difference: $ {diff}")
 
 
 def create_token(code):
@@ -115,6 +116,7 @@ def refresh_token(**kwargs):
         if 'exit' in kwargs and kwargs['exit']:
             sys.exit(0)
 
+
     except Exception as err:
         print(f"Token refresh error: '{err}'")
         sys.exit(1)
@@ -131,10 +133,20 @@ while len(sys.argv) > 0:
         create_token(sys.argv[0])
     elif sys.argv[0] == "--refresh-token":
         refresh_token(exit=True)
+    elif sys.argv[0] == "--ticker":
+        del sys.argv[0]
+        ticker = sys.argv[0]
+        del sys.argv[0]
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
 
+if ticker is None:
+    print("Error - no ticker specified.")
+    sys.exit(1)
+
+stock_params['symbols'] = ticker
+options_params['symbol'] = ticker
 while True:
     token_refreshed = False
     try:
@@ -144,8 +156,8 @@ while True:
                                 headers=headers, params=stock_params)
         response.raise_for_status()
         j = response.json()
-        stock_bid = j['AMC']['quote']['bidPrice']
-        stock_ask = j['AMC']['quote']['askPrice']
+        stock_bid = j[ticker]['quote']['bidPrice']
+        stock_ask = j[ticker]['quote']['askPrice']
         for strike in strikes:
             options_params['strike'] = strike
             response = requests.get(os.path.join(API_URL_BASE, "chains"),
