@@ -1,5 +1,4 @@
 import base64
-import json
 import math
 import myscanner_secrets
 import myscanner_tokens
@@ -34,6 +33,7 @@ options_params = {
 }
 
 refresh_rate = 180
+strikes = [0.5, 1.0, 1.5, 2.0]
 
 
 def compare_prices(stock_bid, stock_ask, opt_quotes):
@@ -52,9 +52,11 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
             elif opt_price > stock_ask:
                 diff = round(math.trunc(opt_price*100.)-stock_ask*100.)
                 if diff > 2.99:
-                    print(f"-----STO: {expiration} {strike} C @"
-                          f"{math.trunc(opt_mid*100.)/100.} and buy AMC @"
-                          f"{stock_ask} - difference: $ {diff}")
+                    parts = expiration.split(":")
+                    if int(parts[1]) < 21:
+                        print(f"-----STO: {expiration} {strike} C @"
+                              f"{math.trunc(opt_mid*100.)/100.} and buy AMC @"
+                              f"{stock_ask} - difference: $ {diff}")
 
 
 def create_token(code):
@@ -125,7 +127,8 @@ while len(sys.argv) > 0:
     elif sys.argv[0] == "--auth-code":
         del sys.argv[0]
         create_token(sys.argv[0])
-        sys.exit(0)
+    elif sys.argv[0] == "--refresh-token":
+        refresh_token()
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
@@ -140,20 +143,15 @@ while True:
         j = response.json()
         stock_bid = j['AMC']['quote']['bidPrice']
         stock_ask = j['AMC']['quote']['askPrice']
-        # 0.5 C options quotes
-        options_params['strike'] = 0.5
-        response = requests.get(os.path.join(API_URL_BASE, "chains"),
-                                headers=headers, params=options_params)
-        response.raise_for_status()
-        j = response.json()
-        compare_prices(stock_bid, stock_ask, j)
-        # 1.0 C options quotes
-        options_params['strike'] = 1.0
-        response = requests.get(os.path.join(API_URL_BASE, "chains"),
-                                headers=headers, params=options_params)
-        response.raise_for_status()
-        j = response.json()
-        compare_prices(stock_bid, stock_ask, j)
+        for strike in strikes:
+            options_params['strike'] = strike
+            response = requests.get(os.path.join(API_URL_BASE, "chains"),
+                                    headers=headers,
+                                    params=options_params)
+            response.raise_for_status()
+            j = response.json()
+            compare_prices(stock_bid, stock_ask, j)
+
     except Exception as err:
         print(f"Error: '{err}'")
         if str(err).find("401 Client Error") == 0:
