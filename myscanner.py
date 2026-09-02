@@ -32,7 +32,7 @@ options_params = {
     'strike': None,
 }
 
-refresh_rate = 180
+rescan_rate = 180
 strikes = [0.5, 1.0, 1.5, 2.0]
 
 
@@ -89,7 +89,7 @@ def create_token(code):
         sys.exit(1)
 
 
-def refresh_token():
+def refresh_token(**kwargs):
     auth = (f"{myscanner_secrets.SECRETS['CLIENT_ID']}:"
             f"{myscanner_secrets.SECRETS['CLIENT_SECRET']}")
     b64_auth = base64.b64encode(auth.encode("utf-8")).decode("utf-8")
@@ -112,7 +112,9 @@ def refresh_token():
             f.write("}\n")
 
         print("Access tokens successfully refreshed.")
-        sys.exit(0)
+        if 'exit' in kwargs and kwargs['exit']:
+            sys.exit(0)
+
     except Exception as err:
         print(f"Token refresh error: '{err}'")
         sys.exit(1)
@@ -120,20 +122,21 @@ def refresh_token():
 
 del sys.argv[0]
 while len(sys.argv) > 0:
-    if sys.argv[0] == "--refresh-rate":
+    if sys.argv[0] == "--rescan-rate":
         del sys.argv[0]
-        refresh_rate = int(sys.argv[0])
+        rescan_rate = int(sys.argv[0])
         del sys.argv[0]
     elif sys.argv[0] == "--auth-code":
         del sys.argv[0]
         create_token(sys.argv[0])
     elif sys.argv[0] == "--refresh-token":
-        refresh_token()
+        refresh_token(exit=True)
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
 
 while True:
+    token_refreshed = False
     try:
         print(f"\nScanning at {datetime.now()}...")
         # stock quote
@@ -158,6 +161,10 @@ while True:
             print(f"Re-authenticate at {API_AUTH_URL}?response_type=code"
                   f"&client_id={myscanner_secrets.SECRETS['CLIENT_ID']}"
                   "&redirect_uri=https://127.0.0.1 and then replace TOKEN")
+            refresh_token()
+            token_refreshed = True
+        else:
             sys.exit(1)
 
-    time.sleep(refresh_rate)
+    if not token_refreshed:
+        time.sleep(rescan_rate)
