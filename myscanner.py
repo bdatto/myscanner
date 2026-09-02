@@ -16,25 +16,25 @@ API_TOKEN_URL = "https://api.schwabapi.com/v1/oauth/token"
 
 API_URL_BASE = "https://api.schwabapi.com/marketdata/v1"
 
-headers = {
+SCAN_HEADERS = {
     'accept': "application/json",
     'Authorization': "Bearer " + myscanner_tokens.TOKENS['ACCESS_TOKEN'],
 }
 
-stock_params = {
+STOCK_PARAMS = {
     'symbols': None,
     'fields': "quote",
 }
 
-options_params = {
+OPTIONS_PARAMS = {
     'symbol': None,
     'contractType': "CALL",
     'strike': None,
 }
 
-ticker = None
-rescan_rate = 180
-strikes = [0.5, 1.0, 1.5, 2.0]
+TICKER = None
+RESCAN_RATE = None
+STRIKES = [0.5, 1.0, 1.5, 2.0]
 
 
 def compare_prices(stock_bid, stock_ask, opt_quotes):
@@ -43,13 +43,14 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
             opt_bid = strike_data[0]['bid']
             opt_ask = strike_data[0]['ask']
             opt_mid = round((opt_bid + opt_ask) / 2. * 1000.) / 1000.
-            opt_price = opt_mid + options_params['strike']
+            opt_price = opt_mid + OPTIONS_PARAMS['strike']
             if opt_price < stock_bid:
-                diff = round(stock_bid*100.-round(opt_price*100.))
-                if diff > 2.99:
-                    print(f"+++++BTO: {expiration} {strike} C @"
-                          f"{round(opt_mid*100.)/100.} and sell {ticker} @"
-                          f"{stock_bid} - difference: $ {diff}, then exercise")
+                buy_price = round(round((opt_mid+0.001)*100.)/100.-0.001, 2)
+                diff = (stock_bid - (buy_price + float(strike))) * 100.
+                if diff > 3.99:
+                    print(f"+++++BTO: {expiration} {strike} C @{buy_price} "
+                          f"and sell {TICKER} @{stock_bid} - difference: $ "
+                          f"{round(diff)}, then exercise")
             elif opt_price > stock_ask:
                 diff = round(math.trunc(opt_price*100.)-stock_ask*100.)
                 if diff > 2.99:
@@ -57,7 +58,7 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                     if int(parts[1]) < 21:
                         print(f"-----STO: {expiration} {strike} C @"
                               f"{math.trunc(opt_mid*100.)/100.} and buy "
-                              f"{ticker} @{stock_ask} - difference: $ {diff}")
+                              f"{TICKER} @{stock_ask} - difference: $ {diff}")
 
 
 def create_token(code):
@@ -103,6 +104,7 @@ def refresh_token(**kwargs):
         'refresh_token': myscanner_tokens.TOKENS['REFRESH_TOKEN'],
     }
     try:
+        print(f"OLD header auth {SCAN_HEADERS['Authorization']} {myscanner_tokens.TOKENS['ACCESS_TOKEN']}")
         response = requests.post(API_TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
         j = response.json()
@@ -112,10 +114,11 @@ def refresh_token(**kwargs):
             f.write(f"""    'REFRESH_TOKEN': "{j['refresh_token']}",\n""")
             f.write("}\n")
 
+        SCAN_HEADERS['Authorization'] = "Bearer " + j['access_token']
+        print(f"NEW header auth {SCAN_HEADERS['Authorization']} {j['access_token']}")
         print("Access tokens successfully refreshed.")
         if 'exit' in kwargs and kwargs['exit']:
             sys.exit(0)
-
 
     except Exception as err:
         print(f"Token refresh error: '{err}'")
@@ -126,7 +129,7 @@ del sys.argv[0]
 while len(sys.argv) > 0:
     if sys.argv[0] == "--rescan-rate":
         del sys.argv[0]
-        rescan_rate = int(sys.argv[0])
+        RESCAN_RATE = int(sys.argv[0])
         del sys.argv[0]
     elif sys.argv[0] == "--auth-code":
         del sys.argv[0]
@@ -135,40 +138,47 @@ while len(sys.argv) > 0:
         refresh_token(exit=True)
     elif sys.argv[0] == "--ticker":
         del sys.argv[0]
-        ticker = sys.argv[0]
+        TICKER = sys.argv[0]
         del sys.argv[0]
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
 
-if ticker is None:
+if TICKER is None:
     print("Error - no ticker specified.")
     sys.exit(1)
 
-stock_params['symbols'] = ticker
-options_params['symbol'] = ticker
+STOCK_PARAMS['symbols'] = TICKER
+OPTIONS_PARAMS['symbol'] = TICKER
+nfail = 0
 while True:
     token_refreshed = False
     try:
         print(f"\nScanning at {datetime.now()}...")
         # stock quote
         response = requests.get(os.path.join(API_URL_BASE, "quotes"),
-                                headers=headers, params=stock_params)
+                                headers=SCAN_HEADERS, params=STOCK_PARAMS)
         response.raise_for_status()
         j = response.json()
-        stock_bid = j[ticker]['quote']['bidPrice']
-        stock_ask = j[ticker]['quote']['askPrice']
-        for strike in strikes:
-            options_params['strike'] = strike
+        stock_bid = j[TICKER]['quote']['bidPrice']
+        stock_ask = j[TICKER]['quote']['askPrice']
+        for strike in STRIKES:
+            OPTIONS_PARAMS['strike'] = strike
             response = requests.get(os.path.join(API_URL_BASE, "chains"),
-                                    headers=headers,
-                                    params=options_params)
+                                    headers=SCAN_HEADERS,
+                                    params=OPTIONS_PARAMS)
             response.raise_for_status()
             j = response.json()
             compare_prices(stock_bid, stock_ask, j)
 
+        print("...done.")
+        nfail = 0
     except Exception as err:
+        nfail += 1
         print(f"Error: '{err}'")
+        if nfail > 2:
+            sys.exit(1)
+
         if str(err).find("401 Client Error") == 0:
             print(f"Re-authenticate at {API_AUTH_URL}?response_type=code"
                   f"&client_id={myscanner_secrets.SECRETS['CLIENT_ID']}"
@@ -178,5 +188,8 @@ while True:
         else:
             sys.exit(1)
 
+    if RESCAN_RATE is None:
+        sys.exit(0)
+
     if not token_refreshed:
-        time.sleep(rescan_rate)
+        time.sleep(RESCAN_RATE)
