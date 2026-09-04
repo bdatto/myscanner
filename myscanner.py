@@ -47,18 +47,22 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
             if opt_price < stock_bid:
                 buy_price = round(round((opt_mid+0.001)*100.)/100.-0.001, 2)
                 diff = (stock_bid - (buy_price + float(strike))) * 100.
-                if diff > 3.99:
-                    print(f"+++++BTO: {expiration} {strike} C @{buy_price} "
+                if diff > 2.99:
+                    print(f">>> BTO: {expiration} {strike} C @{buy_price} "
                           f"and sell {TICKER} @{stock_bid} - difference: $ "
                           f"{round(diff)}, then exercise")
             elif opt_price > stock_ask:
                 diff = round(math.trunc(opt_price*100.)-stock_ask*100.)
                 if diff > 2.99:
                     parts = expiration.split(":")
-                    if int(parts[1]) < 21:
-                        print(f"-----STO: {expiration} {strike} C @"
+                    if int(parts[1]) <= 14:
+                        print(f"<<< STO: {expiration} {strike} C @"
                               f"{math.trunc(opt_mid*100.)/100.} and buy "
                               f"{TICKER} @{stock_ask} - difference: $ {diff}")
+
+            if (opt_mid - opt_bid) > 0.2:
+                print(f"            *** Wide spread: {expiration} {strike} "
+                      f"{opt_bid} {opt_mid} {opt_ask}")
 
 
 def create_token(code):
@@ -104,7 +108,8 @@ def refresh_token(**kwargs):
         'refresh_token': myscanner_tokens.TOKENS['REFRESH_TOKEN'],
     }
     try:
-        print(f"OLD header auth {SCAN_HEADERS['Authorization']} {myscanner_tokens.TOKENS['ACCESS_TOKEN']}")
+        print(f"OLD header auth {SCAN_HEADERS['Authorization']} "
+              f"{myscanner_tokens.TOKENS['ACCESS_TOKEN']}")
         response = requests.post(API_TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
         j = response.json()
@@ -115,7 +120,8 @@ def refresh_token(**kwargs):
             f.write("}\n")
 
         SCAN_HEADERS['Authorization'] = "Bearer " + j['access_token']
-        print(f"NEW header auth {SCAN_HEADERS['Authorization']} {j['access_token']}")
+        print(f"NEW header auth {SCAN_HEADERS['Authorization']} "
+              f"{j['access_token']}")
         print("Access tokens successfully refreshed.")
         if 'exit' in kwargs and kwargs['exit']:
             sys.exit(0)
