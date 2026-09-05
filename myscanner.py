@@ -60,7 +60,7 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                               f"{math.trunc(opt_mid*100.)/100.} and buy "
                               f"{TICKER} @{stock_ask} - difference: $ {diff}")
 
-            if (opt_mid - opt_bid) > 0.2:
+            if WITH_SPREADS and (opt_mid - opt_bid) > 0.2:
                 print(f"            *** Wide spread: {expiration} {strike} "
                       f"{opt_bid} {opt_mid} {opt_ask}")
 
@@ -131,6 +131,8 @@ def refresh_token(**kwargs):
         sys.exit(1)
 
 
+WITH_SPREADS = False
+
 del sys.argv[0]
 while len(sys.argv) > 0:
     if sys.argv[0] == "--rescan-rate":
@@ -146,6 +148,8 @@ while len(sys.argv) > 0:
         del sys.argv[0]
         TICKER = sys.argv[0]
         del sys.argv[0]
+    elif sys.argv[0] == "--with-spreads":
+        WITH_SPREADS = True
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
