@@ -48,21 +48,22 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                 buy_price = round(round((opt_mid+0.001)*100.)/100.-0.001, 2)
                 diff = (stock_bid - (buy_price + float(strike))) * 100.
                 if diff > 2.99:
-                    print(f">>> BTO: {expiration} {strike} C @{buy_price} "
-                          f"and sell {TICKER} @{stock_bid} - difference: $ "
-                          f"{round(diff)}, then exercise")
+                    print(f">>> BTO {strike}C {expiration} @{buy_price} "
+                          f"SELL @{stock_bid} + $ {round(diff)}"
+                          f"{'<<' if diff >= 6 else ''}")
             elif opt_price > stock_ask:
                 diff = round(math.trunc(opt_price*100.)-stock_ask*100.)
                 if diff > 2.99:
                     parts = expiration.split(":")
                     if int(parts[1]) <= 14:
-                        print(f"<<< STO: {expiration} {strike} C @"
-                              f"{math.trunc(opt_mid*100.)/100.} and buy "
-                              f"{TICKER} @{stock_ask} - difference: $ {diff}")
+                        print(f"<<< STO {strike}C {expiration} @"
+                              f"{math.trunc(opt_mid*100.)/100.} BUY "
+                              f"@{stock_ask} + $ {diff}"
+                              f"{'<<' if diff >= 6 else ''}")
 
             if WITH_SPREADS and (opt_mid - opt_bid) > 0.2:
-                print(f"            *** Wide spread: {expiration} {strike} "
-                      f"{opt_bid} {opt_mid} {opt_ask}")
+                print(f"        *** Wide {strike}C {expiration} {opt_bid} "
+                      f"{opt_mid} {opt_ask}")
 
 
 def create_token(code):
@@ -149,6 +150,7 @@ while len(sys.argv) > 0:
         TICKER = sys.argv[0]
         del sys.argv[0]
     elif sys.argv[0] == "--with-spreads":
+        del sys.argv[0]
         WITH_SPREADS = True
     else:
         print(f"Unrecognized option '{sys.argv[0]}'")
