@@ -77,6 +77,7 @@ def create_token(code):
     data = {
         'grant_type': "authorization_code",
         'code': code,
+        'client_id': myscanner_secrets.SECRETS['CLIENT_ID'],
         'redirect_uri': "https://127.0.0.1",
     }
     try:
@@ -145,6 +146,10 @@ while len(sys.argv) > 0:
         create_token(sys.argv[0])
     elif sys.argv[0] == "--refresh-token":
         refresh_token(exit=True)
+    elif sys.argv[0] == "--strikes":
+        del sys.argv[0]
+        STRIKES = [float(e) for e in sys.argv[0].split(",")]
+        del sys.argv[0]
     elif sys.argv[0] == "--ticker":
         del sys.argv[0]
         TICKER = sys.argv[0]
