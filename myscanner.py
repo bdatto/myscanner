@@ -43,8 +43,7 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
             opt_bid = strike_data[0]['bid']
             opt_ask = strike_data[0]['ask']
             opt_mid = round((opt_bid + opt_ask) / 2. * 1000.) / 1000.
-            opt_price = (
-                    round((opt_mid + OPTIONS_PARAMS['strike']) * 100.) / 100.)
+            opt_price = opt_mid + OPTIONS_PARAMS['strike'] + 0.001
             if opt_price < stock_bid:
                 buy_price = round(round((opt_mid+0.001)*100.)/100.-0.001, 2)
                 diff = (stock_bid - (buy_price + float(strike))) * 100.
