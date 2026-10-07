@@ -34,7 +34,7 @@ OPTIONS_PARAMS = {
 
 TICKER = None
 RESCAN_RATE = None
-STRIKES = [0.5, 1.0, 1.5, 2.0]
+STRIKES = []
 
 
 def compare_prices(stock_bid, stock_ask, opt_quotes):
@@ -48,7 +48,7 @@ def compare_prices(stock_bid, stock_ask, opt_quotes):
                 buy_price = round(round((opt_mid+0.001)*100.)/100.-0.001, 2)
                 diff = (stock_bid - (buy_price + float(strike))) * 100.
                 if diff > 2.99:
-                    print(f">>> BTO {strike}C {expiration} @{buy_price} "
+                    print(f"BTO >>> {strike}C {expiration} @{buy_price} "
                           f"SELL @{stock_bid} + $ {round(diff)}"
                           f"{'<<' if diff >= 6 else ''}")
             elif opt_price > stock_ask:
@@ -164,6 +164,11 @@ while len(sys.argv) > 0:
 if TICKER is None:
     print("Error - no ticker specified.")
     sys.exit(1)
+
+if not STRIKES:
+    print("Error - no strikes specified.")
+    sys.exit(1)
+
 
 STOCK_PARAMS['symbols'] = TICKER
 OPTIONS_PARAMS['symbol'] = TICKER
