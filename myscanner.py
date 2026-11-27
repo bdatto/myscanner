@@ -32,7 +32,7 @@ OPTIONS_PARAMS = {
     'strike': None,
 }
 
-TICKER = None
+TICKERS = []
 RESCAN_RATE = None
 STRIKES = []
 
@@ -152,7 +152,7 @@ while len(sys.argv) > 0:
         del sys.argv[0]
     elif sys.argv[0] == "--ticker":
         del sys.argv[0]
-        TICKER = sys.argv[0]
+        TICKERS.append(sys.argv[0])
         del sys.argv[0]
     elif sys.argv[0] == "--with-spreads":
         del sys.argv[0]
@@ -161,8 +161,8 @@ while len(sys.argv) > 0:
         print(f"Unrecognized option '{sys.argv[0]}'")
         sys.exit(1)
 
-if TICKER is None:
-    print("Error - no ticker specified.")
+if len(TICKERS) == 0:
+    print("Error - no ticker(s) specified.")
     sys.exit(1)
 
 if not STRIKES:
@@ -170,48 +170,49 @@ if not STRIKES:
     sys.exit(1)
 
 
-STOCK_PARAMS['symbols'] = TICKER
-OPTIONS_PARAMS['symbol'] = TICKER
 nfail = 0
 while True:
-    token_refreshed = False
-    try:
-        print(f"\nScanning at {datetime.now()}...")
-        # stock quote
-        response = requests.get(os.path.join(API_URL_BASE, "quotes"),
-                                headers=SCAN_HEADERS, params=STOCK_PARAMS)
-        response.raise_for_status()
-        j = response.json()
-        stock_bid = j[TICKER]['quote']['bidPrice']
-        stock_ask = j[TICKER]['quote']['askPrice']
-        for strike in STRIKES:
-            OPTIONS_PARAMS['strike'] = strike
-            response = requests.get(os.path.join(API_URL_BASE, "chains"),
-                                    headers=SCAN_HEADERS,
-                                    params=OPTIONS_PARAMS)
+    for ticker in TICKERS:
+        STOCK_PARAMS['symbols'] = ticker
+        OPTIONS_PARAMS['symbol'] = ticker
+        token_refreshed = False
+        try:
+            print(f"\nScanning {ticker} at {datetime.now()}...")
+            # stock quote
+            response = requests.get(os.path.join(API_URL_BASE, "quotes"),
+                                    headers=SCAN_HEADERS, params=STOCK_PARAMS)
             response.raise_for_status()
             j = response.json()
-            compare_prices(stock_bid, stock_ask, j)
+            stock_bid = j[ticker]['quote']['bidPrice']
+            stock_ask = j[ticker]['quote']['askPrice']
+            for strike in STRIKES:
+                OPTIONS_PARAMS['strike'] = strike
+                response = requests.get(os.path.join(API_URL_BASE, "chains"),
+                                        headers=SCAN_HEADERS,
+                                        params=OPTIONS_PARAMS)
+                response.raise_for_status()
+                j = response.json()
+                compare_prices(stock_bid, stock_ask, j)
 
-        print("...done.")
-        nfail = 0
-    except Exception as err:
-        nfail += 1
-        print(f"Error: '{err}'")
-        if nfail > 2:
-            sys.exit(1)
+            print("...done.")
+            nfail = 0
+        except Exception as err:
+            nfail += 1
+            print(f"Error: '{err}'")
+            if nfail > 2:
+                sys.exit(1)
 
-        if str(err).find("401 Client Error") == 0:
-            print(f"Re-authenticate at {API_AUTH_URL}?response_type=code"
-                  f"&client_id={myscanner_secrets.SECRETS['CLIENT_ID']}"
-                  "&redirect_uri=https://127.0.0.1 and then replace TOKEN")
-            refresh_token()
-            token_refreshed = True
-        else:
-            sys.exit(1)
+            if str(err).find("401 Client Error") == 0:
+                print(f"Re-authenticate at {API_AUTH_URL}?response_type=code"
+                      f"&client_id={myscanner_secrets.SECRETS['CLIENT_ID']}"
+                      "&redirect_uri=https://127.0.0.1 and then replace TOKEN")
+                refresh_token()
+                token_refreshed = True
+            else:
+                sys.exit(1)
 
-    if RESCAN_RATE is None:
-        sys.exit(0)
+        if RESCAN_RATE is None:
+            sys.exit(0)
 
     if not token_refreshed:
         time.sleep(RESCAN_RATE)
