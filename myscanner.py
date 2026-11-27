@@ -7,7 +7,6 @@ import requests
 import sys
 import time
 
-
 from datetime import datetime
 
 
@@ -147,13 +146,11 @@ while len(sys.argv) > 0:
         create_token(sys.argv[0])
     elif sys.argv[0] == "--refresh-token":
         refresh_token(exit=True)
-    elif sys.argv[0] == "--strikes":
-        del sys.argv[0]
-        STRIKES.append([float(e) for e in sys.argv[0].split(",")])
-        del sys.argv[0]
     elif sys.argv[0] == "--ticker":
         del sys.argv[0]
-        TICKERS.append(sys.argv[0])
+        parts = sys.argv[0].split(":")
+        TICKERS.append(parts[0])
+        STRIKES.append([float(e) for e in parts[1].split(",")])
         del sys.argv[0]
     elif sys.argv[0] == "--with-spreads":
         del sys.argv[0]
